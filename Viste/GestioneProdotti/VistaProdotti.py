@@ -237,7 +237,6 @@ class VistaProdotti(QWidget):
             if not self.prodotti:
                 self.tabella.setRowCount(0)
                 QMessageBox.information(self, 'Attenzione', 'Non sono presenti prodotti nel catalogo', QMessageBox.Ok)
-                self.close()
         except Exception as e:
             print(e)
 
