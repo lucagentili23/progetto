@@ -1,0 +1,319 @@
+import datetime
+import re
+
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QLineEdit, \
+    QComboBox, QRadioButton, QListWidget, QButtonGroup, QMessageBox
+
+from Classi.Film import Film
+from Classi.Ricevuta import Ricevuta
+from Classi.Videogioco import Videogioco
+from Gestori.GestoreCliente import GestoreCliente
+from Gestori.GestoreProdotto import GestoreProdotto
+from Gestori.GestoreRicevuta import GestoreRicevuta
+
+class VistaAcquisto(QWidget):
+
+    def __init__(self):
+        super().__init__()
+
+        self.prodotti = []
+        self.clienti = []
+
+        self.setWindowTitle("VideoSpace")
+        self.setFixedSize(600, 600)
+
+        font = QFont("impact", 20)
+
+        layout = QVBoxLayout()
+
+        label_acquisto = QLabel("Acquisto")
+        label_acquisto.setFont(font)
+        layout.addWidget(label_acquisto)
+
+        layout1 = QHBoxLayout()
+
+        self.cerca_prodotto = QLineEdit()
+        self.cerca_prodotto.setPlaceholderText("Prodotto")
+        layout1.addWidget(self.cerca_prodotto)
+
+        self.combo_prodotto = QComboBox()
+        self.combo_prodotto.addItems(["Nome", "id"])
+        layout1.addWidget(self.combo_prodotto)
+
+        self.radio_film = QRadioButton("Film")
+        self.radio_videogioco = QRadioButton("Videogioco")
+
+        radio_group = QButtonGroup()
+        radio_group.addButton(self.radio_film)
+        radio_group.addButton(self.radio_videogioco)
+
+        layout1.addWidget(self.radio_film)
+        layout1.addWidget(self.radio_videogioco)
+
+        pulsante_cerca_prodotto = QPushButton("Cerca")
+        pulsante_cerca_prodotto.setFixedWidth(50)
+        layout1.addWidget(pulsante_cerca_prodotto)
+
+        layout.addLayout(layout1)
+
+        self.lista_prodotti = QListWidget()
+        self.lista_prodotti.setSelectionMode(QListWidget.SingleSelection)
+        layout.addWidget(self.lista_prodotti)
+
+        layout2 = QHBoxLayout()
+
+        self.cerca_cliente = QLineEdit()
+        self.cerca_cliente.setPlaceholderText("Cliente")
+        layout2.addWidget(self.cerca_cliente)
+
+        self.combo_cliente = QComboBox()
+        self.combo_cliente.addItems(["Nome e cognome", "Codice fiscale", "Id"])
+        layout2.addWidget(self.combo_cliente)
+
+        pulsante_cerca_cliente = QPushButton("Cerca")
+        pulsante_cerca_cliente.setFixedWidth(50)
+        layout2.addWidget(pulsante_cerca_cliente)
+
+        layout.addLayout(layout2)
+
+        self.lista_clienti = QListWidget()
+        self.lista_clienti.setSelectionMode(QListWidget.SingleSelection)
+        layout.addWidget(self.lista_clienti)
+
+        layout3 = QHBoxLayout()
+
+        pulsante_conferma = QPushButton("Conferma")
+        pulsante_conferma.setFixedWidth(200)
+        layout3.addWidget(pulsante_conferma)
+
+        layout3.addSpacing(40)
+
+        pulsante_annulla = QPushButton("Annulla")
+        pulsante_annulla.setFixedWidth(200)
+        layout3.addWidget(pulsante_annulla)
+
+        layout.addLayout(layout3)
+
+        pulsante_annulla.clicked.connect(self.on_click_annulla)
+        pulsante_cerca_prodotto.clicked.connect(self.on_click_cerca_prodotto)
+        pulsante_cerca_cliente.clicked.connect(self.on_click_cerca_cliente)
+        pulsante_conferma.clicked.connect(self.on_click_conferma)
+        self.lista_prodotti.itemClicked.connect(self.on_item_clicked)
+
+        self.lista_prodotti.setStyleSheet("""
+                    QListWidget::item:selected {
+                        background-color: #39afcc;
+                    }
+                """)
+        self.lista_clienti.setStyleSheet("""
+                    QListWidget::item:selected {
+                        background-color: #39afcc;
+                    }
+                """)
+
+        self.setLayout(layout)
+
+    def on_click_annulla(self):
+        from Viste.VistaHome import VistaHome
+        self.vista_home = VistaHome()
+        self.vista_home.show()
+        self.close()
+
+    def on_click_cerca_prodotto(self):
+        try:
+            if not self.radio_film.isChecked() and not self.radio_videogioco.isChecked():
+                QMessageBox.warning(self, 'Errore', 'Seleziona la categoria')
+                return
+            if self.cerca_prodotto.text() == "":
+                QMessageBox.warning(self, 'Errore', 'Inserisci i parametri di ricerca')
+                return
+
+            gestore_prodotto = GestoreProdotto()
+            self.prodotti = gestore_prodotto.lista_prodotti
+
+            self.lista_prodotti.clear()
+
+            risultati = []
+
+            if self.radio_film.isChecked():
+                categoria = "Film"
+            elif self.radio_videogioco.isChecked():
+                categoria = "Videogioco"
+
+            if self.combo_prodotto.currentText() == "Nome":
+                nome = self.cerca_prodotto.text()
+                for prodotto in self.prodotti:
+                    if prodotto.getTipo() == categoria:
+                        if nome in prodotto.getNome():
+                            risultati.append(prodotto)
+            elif self.combo_prodotto.currentText() == "id":
+                id = self.cerca_prodotto.text()
+                for prodotto in self.prodotti:
+                    if prodotto.getTipo() == categoria:
+                        if prodotto.getId() == int(id):
+                            risultati.append(prodotto)
+
+            risultati_elaborati = []
+
+            for r in risultati:
+                if self.radio_videogioco.isChecked():
+                    if isinstance(r, Videogioco):
+                        if r.disponibile:
+                            res = str(r.id) + "  -  " + r.nome + "  -  " + r.piattaforma + "  -  €" + str(r.costoAcquisto) + "  -  Disponibile"
+                        else:
+                            res = str(r.id) + "  -  " + r.nome + "  -  " + r.piattaforma + "  -  €" + str(r.costoAcquisto) + "  -  Non disponibile"
+                if self.radio_film.isChecked():
+                    if isinstance(r, Film):
+                        if r.disponibile:
+                            res = str(r.id) + "  -  " + r.nome + "  -  " + r.regista + "  -  €" + str(r.costoAcquisto) + "  -  Disponibile"
+                        else:
+                            res = str(r.id) + "  -  " + r.nome + "  -  " + r.regista + "  -  €" + str(r.costoAcquisto) + "  -  Non disponibile"
+                risultati_elaborati.append(res)
+
+                if not res:
+                    msg = QMessageBox()
+                    msg.setIcon(QMessageBox.Information)
+                    msg.setWindowTitle("Ricerca fallita")
+                    msg.setText("La ricerca non ha prodotto risultati")
+                    msg.setStandardButtons(QMessageBox.Ok)
+                    msg.exec_()
+
+            self.lista_prodotti.addItems(risultati_elaborati)
+        except Exception as e:
+            print(e)
+
+    def on_click_cerca_cliente(self):
+        try:
+            if self.cerca_cliente.text() == "":
+                QMessageBox.warning(self, 'Errore', 'Inserisci i parametri di ricerca')
+                return
+
+            gestore_cliente = GestoreCliente()
+            self.clienti = gestore_cliente.listaClienti
+
+            self.lista_clienti.clear()
+
+            risultati = []
+
+            if self.combo_cliente.currentText() == "Nome e cognome":
+                nome_e_cognome = self.cerca_cliente.text()
+                for cliente in self.clienti:
+                    s = cliente.getNomeCognome()
+                    if nome_e_cognome in s:
+                        risultati.append(cliente)
+            elif self.combo_cliente.currentText() == "Codice fiscale":
+                codice_fiscale = self.cerca_cliente.text()
+                for cliente in self.clienti:
+                    if codice_fiscale in cliente.getCodiceFiscale():
+                        risultati.append(cliente)
+            elif self.combo_cliente.currentText() == "Id":
+                try:
+                    id = self.cerca_cliente.text()
+                    for cliente in self.clienti:
+                        if str(id) in str(cliente.getId()):
+                            risultati.append(cliente)
+                except Exception as e:
+                    print(f"errore: {e}")
+
+            risultati_elaborati = []
+
+            for r in risultati:
+                res = r.getInfoCliente()
+                risultati_elaborati.append(res)
+
+            if not risultati_elaborati:
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Ricerca fallita")
+                msg.setText("La ricerca non ha prodotto risultati")
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.exec_()
+
+            self.lista_clienti.addItems(risultati_elaborati)
+
+        except Exception as e:
+            print(e)
+
+    def on_item_clicked(self, item):
+        if item.text().endswith("Non disponibile"):
+            item.setSelected(False)
+
+    def on_click_conferma(self):
+        prova1 = False
+        prova2 = False
+        try:
+            if not self.lista_prodotti.selectedItems():
+                QMessageBox.warning(self, 'Errore', 'Seleziona un prodotto')
+                return
+
+            if not self.lista_clienti.selectedItems():
+                QMessageBox.warning(self, 'Errore', 'Seleziona un cliente')
+                return
+
+            # Prende l'id del prodotto selezionato
+            prodotto_selezionato = self.lista_prodotti.selectedItems()[0].text()
+            match = re.match(r'(\d+)', prodotto_selezionato)
+            if not match:
+                QMessageBox.warning(self, 'Errore', 'Errore nel matching del prodotto')
+                return
+            id_prodotto = int(match.group(1))
+
+            # Prende l'id del cliente selezionato
+            cliente_selezionato = self.lista_clienti.selectedItems()[0].text()
+            match2 = re.match(r'(\d+)', cliente_selezionato)
+            if not match2:
+                QMessageBox.warning(self, 'Errore', 'Errore nel matching del cliente')
+                return
+            id_cliente = int(match2.group(1))
+
+            # Trova il prodotto acquistato
+            prodotto_acquistato = next((p for p in self.prodotti if p.id == id_prodotto), None)
+            if not prodotto_acquistato:
+                QMessageBox.warning(self, 'Errore', 'Prodotto non trovato')
+                return
+
+            # Trova il cliente che acquista
+            cliente_che_acquista = next((c for c in self.clienti if c.id == id_cliente), None)
+            if not cliente_che_acquista:
+                QMessageBox.warning(self, 'Errore', 'Cliente non trovato')
+                return
+
+            # Crea nuova ricevuta
+            data_emissione = datetime.datetime.today()
+            data_emissione_elaborata = data_emissione.strftime("%d-%m-%Y")
+            importo = prodotto_acquistato.costoAcquisto
+            tipologia = "Acquisto"
+
+            ricevuta = Ricevuta(None, cliente_che_acquista, data_emissione_elaborata, importo, prodotto_acquistato, tipologia, None)
+
+            try:
+                gestore_ricevuta = GestoreRicevuta()
+                gestore_ricevuta.aggiungi_ricevuta(ricevuta)
+                prodotto_acquistato.decrementa()
+                gestore_prodotto = GestoreProdotto()
+                gestore_prodotto.modifica_prodotto(prodotto_acquistato)
+                prova1 = True
+            except Exception as e:
+                print(f"a: {e}")
+
+            prova2 = True
+        except Exception as e:
+            QMessageBox.critical(self, 'Errore', f"Si è verificato un errore: {str(e)}")
+            print(e)
+
+        if prova1 and prova2:
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Operazione completata")
+            msg.setText("Acquisto effettuato con successo.")
+            msg.setStandardButtons(QMessageBox.Ok)
+
+            # Esegue finestra dialogo e cattura risposta
+            retval = msg.exec_()
+
+            if retval == QMessageBox.Ok:
+                from Viste.VistaHome import VistaHome
+                self.vista_home = VistaHome()
+                self.vista_home.show()
+                self.close()
