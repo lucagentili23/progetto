@@ -1,3 +1,4 @@
+import os
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QPixmap
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout, QSpacerItem, QSizePolicy
@@ -21,8 +22,16 @@ class VistaStatistiche(QWidget):
             self.layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
             container_logo = QLabel()
-            logo = QPixmap("src/Logo.png")
-            container_logo.setPixmap(logo.scaledToWidth(400))
+            
+            image_path = os.path.join("src", "Logo.png")
+            logo = QPixmap(image_path)
+
+            if logo.isNull():
+                print(f"ATTENZIONE: Impossibile caricare l'immagine dal percorso '{image_path}'")
+                container_logo.setText("Logo non trovato")
+            else:
+                container_logo.setPixmap(logo.scaledToWidth(400))
+
             container_logo.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
             self.layout.addWidget(container_logo)
 
